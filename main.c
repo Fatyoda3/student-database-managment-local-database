@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 
+
 #define SERIALIZED_DATA "(%d, %c, %s )\n"
 
 typedef struct Person
@@ -16,7 +17,10 @@ typedef struct Person_list
     Person person;
     struct Person_list *next;
 } Person_list;
-// Person p1 = {.name = "shivang", .age = 19, .grade = 'B'}; // if we initialize and assign at the same time then it works for string without strcpy fn
+
+// Person p1 = {.name = "shivang", .age = 19, .grade = 'B'}; 
+// if we initialize and assign at the same time then it works for string without strcpy fn
+
 Person *P1;
 Person P2;
 
