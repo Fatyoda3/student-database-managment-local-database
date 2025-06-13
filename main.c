@@ -1,243 +1,151 @@
+// main.c
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
+#ifdef _WIN32
+#include <windows.h>
+#else
+#include <unistd.h>
+#endif
 
-#define SERIALIZED_DATA "(%d, %c, %s )\n"
+#include "person.h"
+#include "student_ops.h"
 
-typedef struct Person
-{
-    char name[20];
-    int age;
+// ANSI Colors
+#define RESET   "\033[0m"
+#define RED     "\033[1;31m"
+#define GREEN   "\033[1;32m"
+#define YELLOW  "\033[1;33m"
+#define BLUE    "\033[1;34m"
+#define MAGENTA "\033[1;35m"
+#define CYAN    "\033[1;36m"
+
+// Show main menu
+void showMenu() {
+    printf(CYAN "\n========= Student Record Manager =========\n" RESET);
+    printf(YELLOW "1. " RESET " Create new student record\n");
+    printf(YELLOW "2. " RESET " Show today's records\n");
+    printf(YELLOW "3. " RESET " Retrieve record by position\n");
+    printf(YELLOW "4. " RESET " Load records into memory (heap)\n");
+    printf(YELLOW "0. " RESET " Exit\n");
+}
+
+// Fancy loading animation
+void loading(const char *msg) {
+    const char spinner[] = "|/-\\";
+    printf(BLUE "%s " RESET, msg);
+    fflush(stdout);
+    for (int i = 0; i < 10; ++i) {
+        printf(BLUE "%c" RESET, spinner[i % 4]);
+        fflush(stdout);
+#ifdef _WIN32
+        Sleep(100);
+#else
+        usleep(100000);
+#endif
+        printf("\b");
+    }
+    printf(GREEN "✔️ Done!\n" RESET);
+}
+
+// Terminal beep
+void beep() {
+    printf("\a");
+    fflush(stdout);
+}
+
+int main() {
+    int choice, age, upto, position;
     char grade;
-} Person;
+    char name[100];
 
-typedef struct Person_list
-{
-    Person person;
-    struct Person_list *next;
-} Person_list;
+    do {
+        showMenu();
+        printf(MAGENTA "\nEnter your choice: " RESET);
+        if (scanf("%d", &choice) != 1) {
+            while (getchar() != '\n'); // clear input buffer
+            beep();
+            printf(RED " Invalid input. Please enter a number.\n" RESET);
+            continue;
+        }
+        getchar(); // consume newline
 
-// Person p1 = {.name = "shivang", .age = 19, .grade = 'B'}; 
-// if we initialize and assign at the same time then it works for string without strcpy fn
+        switch (choice) {
+            case 1:
+                printf(MAGENTA "Enter name: " RESET);
+                fgets(name, sizeof(name), stdin);
+                name[strcspn(name, "\n")] = '\0';
 
-Person *P1;
-Person P2;
+                printf(MAGENTA "Enter age: " RESET);
+                if (scanf("%d", &age) != 1) {
+                    while (getchar() != '\n');
+                    beep();
+                    printf(RED " Invalid age input.\n" RESET);
+                    break;
+                }
 
-void createStudentRecord(int age, char grade, char *name);
+                printf(MAGENTA "Enter grade: " RESET);
+                getchar(); // remove newline
+                grade = getchar();
 
-void ReadStudentRecords(int upto);
+                loading("Creating record...");
+                createStudentRecord(age, grade, name);
+                beep();
+                printf(GREEN " Record added for %s!\n" RESET, name);
+                break;
 
-void RetrieveData(int position);
+            case 2:
+                printf(MAGENTA "Enter how many records to read (-1 for all): " RESET);
+                if (scanf("%d", &upto) != 1) {
+                    while (getchar() != '\n');
+                    beep();
+                    printf(RED " Invalid input.\n" RESET);
+                    break;
+                }
+                loading("Reading records...");
+                ReadStudentRecords(upto);
+                beep();
+                break;
 
-void storeInHeap(int upto);
+            case 3:
+                printf(MAGENTA "Enter record position to retrieve: " RESET);
+                if (scanf("%d", &position) != 1) {
+                    while (getchar() != '\n');
+                    beep();
+                    printf(RED " Invalid position.\n" RESET);
+                    break;
+                }
+                loading("Retrieving record...");
+                RetrieveData(position);
+                beep();
+                break;
 
-int main()
-{
+            case 4:
+                printf(MAGENTA "Enter how many records to load: " RESET);
+                if (scanf("%d", &upto) != 1) {
+                    while (getchar() != '\n');
+                    beep();
+                    printf(RED " Invalid input.\n" RESET);
+                    break;
+                }
+                loading("Loading records into memory...");
+                storeInHeap(upto);
+                beep();
+                break;
 
-        createStudentRecord(22, 'C', "raj");
-        createStudentRecord(19, 'B', "shivang");
-        createStudentRecord(19, 'B', "shivang");
-        createStudentRecord(19, 'A', "shivang");
+            case 0:
+                loading("Exiting system...");
+                printf(RED " Goodbye, see you soon!\n" RESET);
+                beep();
+                break;
 
-    ReadStudentRecords(-1);
-    RetrieveData(3);
-    storeInHeap(1000);
+            default:
+                beep();
+                printf(RED " Invalid option. Try again.\n" RESET);
+        }
+
+    } while (choice != 0);
+
     return 0;
 }
-
-void createStudentRecord(int age, char grade, char *name)
-{
-    P1 = malloc(sizeof(Person));
-
-    P1->age = age;
-    P1->grade = grade;
-    strcpy(P1->name, name);
-
-    FILE *file;
-
-    file = fopen("students.dat", "a");
-
-    fprintf(file, SERIALIZED_DATA, P1->age, P1->grade, P1->name);
-
-    fclose(file);
-}
-
-void ReadStudentRecords(int upto)
-{
-    if (upto == -1)
-        upto = 1000;
-
-    FILE *file;
-
-    file = fopen("students.dat", "r");
-
-    // char i = 0;
-    int i = 0;
-    char c = fgetc(file);
-
-    putchar(c);
-
-    while (c != EOF && /* (int)  */ i < upto)
-    // while ((c = fgetc(file)) != EOF && i < upto)
-    {
-        // so the reason why while((c= fgetc(file) ) !=EOF) was used because it first initialized the value then compared but i did it wrong it can be fixed by pointed the first char manually outside the loop body
-        // this will also fix the i not being integer
-
-        c = fgetc(file); // read the byte value and increment by 1 to read the next content in the file
-        putchar(c);
-        // display char one by one
-
-        if (c == '\n')
-            i += 1;
-    }
-
-    fclose(file);
-    // char nominal[1024];
-
-    /*   while (c != EOF)
-      {
-          c = fgetc(file);
-          fgets(nominal, 1024, file);
-      }
-      printf("%s ", nominal); */
-}
-
-void RetrieveData(int position)
-{
-    char buffer[2048];
-
-    int max_read = 1024;
-
-    int keep_reading = 1;
-
-    FILE *file;
-
-    file = fopen("students.dat", "r");
-
-    // char c;
-
-    char i = 1;
-
-    // char grade;
-
-    // int age;
-
-    do
-    {
-        // fgets(buffer, max_read, file);
-        fscanf(file, SERIALIZED_DATA, &P2.age, &P2.grade, P2.name);
-
-        if (i == max_read)
-        {
-            keep_reading = 0;
-            printf("no record available \n");
-        }
-
-        else if (i == position && feof(file) != 0)
-        {
-
-            // fseek(file, , SEEK_SET);
-            // printf("%s\n", buffer);
-
-            keep_reading = 0;
-        }
-
-        // if (i == position - 1)
-
-        i++;
-    } while (keep_reading);
-
-    printf("%s %d %c ", P2.name, P2.age, P2.grade);
-
-    fclose(file);
-
-    return;
-}
-
-void storeInHeap(int upto)
-{
-
-    FILE *file;
-
-    file = fopen("students.dat", "r");
-
-    int keep_inserting = 1; // true
-
-    Person_list *headPtr = NULL;
-
-    Person *t = (Person *)malloc(sizeof(Person));
-
-    int i = 1;
-    char c;
-    int safety_check = 0;
-    while ((c = fgetc(file)) != EOF)
-
-        if (c == '\n')
-            safety_check++;
-
-    fseek(file, SEEK_SET, 0);
-
-    do
-    {
-        fscanf(file, SERIALIZED_DATA, &t->age, &t->grade, t->name);
-
-        Person *temp = (Person *)malloc(sizeof(Person));
-
-        if (1)
-        {
-            strcpy(temp->name, t->name);
-            temp->age = t->age;
-            temp->grade = t->grade;
-        }
-
-        if (headPtr == NULL)
-        {
-            Person_list *l = malloc(sizeof(Person_list));
-
-            headPtr = l;
-
-            l->person = *temp;
-            l->next = NULL;
-        }
-        else
-        {
-            Person_list *l = malloc(sizeof(Person_list));
-
-            l->person = *temp;
-
-            l->next = headPtr;
-
-            headPtr = l;
-        }
-
-        if (i == upto || i >= safety_check + 1)
-            keep_inserting = 0;
-
-        i++;
-    } while (keep_inserting);
-
-    fclose(file);
-
-    Person_list *temp = headPtr;
-
-    while (temp != NULL)
-    {
-        printf("age -->  %d, grade --> %c, name --> %s\n\n", temp->person.age, temp->person.grade, temp->person.name);
-        temp = temp->next;
-    }
-    // free that memory
-    temp = headPtr;
-    while (temp)
-    {
-        // Person_list nTemp = *temp->next;
-        free(temp);
-        temp = temp->next;
-        
-    }
-}
-// char c;
-
-// fclose(file);
-
-// file = fopen("students.dat", "r");
